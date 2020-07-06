@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>三维平台框架</title>
+    <script type="text/javascript" src="./lib/CTMap/CTMap.js"></script> 
+    <script type="text/javascript" src="./lib/Sandbox.js"></script>
+
+    <link rel="stylesheet" href="./lib/CTMap/Widgets/widgets.css">
+
+    <style>
+        html,
+        body,
+        #mapContainer {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        #toolbar {
+            width: 100%;
+            height: auto;
+            position: absolute;
+            left: 20px;
+            top: 20px;
+        }
+
+        #animation {
+            width: 100%;
+            height: auto;
+            position: absolute;
+            left: 20px;
+            top: 60px;
+        }
+    </style>
+</head>
+
+<body onload="onload()">
+    <div id='mapContainer'></div>
+    <div id='toolbar'></div>
+    <div id='animation'></div>
+    <script>
+        function onload() {
+            //初始化地球
+            var earth = new CTMap.Viewer('mapContainer');
+            //加载地图
+            var img_google = new CTMap.UrlTemplateImageryProvider({
+                subdomains: ["1", "2", "3"],
+                url: "http://mt{s}.google.cn/vt/lyrs=s&hl=zh-CN&x={x}&y={y}&z={z}"
+            });
+            //加载地形
+            // viewer.terrainProvider = new CTMap.CesiumTerrainProvider({
+            //     url: dataUrls.baseTerrain
+            // });
+            var layers = earth.scene.imageryLayers;
+            layers.addImageryProvider(img_google);
+
+            let lon = 116.3907;
+            let lat = 39.8986;
+            let alt = 0;
+
+            earth.navigation.mousePosition.show = true;
+ 
+            //飞行定位到经纬度
+            earth.camera.flyTo({
+                destination: CTMap.Cartesian3.fromDegrees(116.3907, 39.8986, 15000.0)
+            });
+
+            let models, line, polygon, point, poi;
+            models = new Map();
+
+            /**
+             * 添加点
+             * @param  {Number} lon 经度  
+             * @param  {Number} lat 纬度
+             * @param  {Number} alt 高度 
+             * @return  
+             */
+            function addPoint(lon, lat, alt) {
+
+                point = earth.entities.add({
+                    position: Cesium.Cartesian3.fromDegrees(lon, lat, alt), //点位置
+                    point: {
+                        color: CTMap.Color.fromCssColorString('red'), //点颜色
+                        pixelSize: 30 //点大小
+                    }
+                });
+
+            }
+
+            /**
+             * 添加POI图标
+             * @param  {Number} lon 经度  
+             * @param  {Number} lat 纬度
+             * @param  {Number} alt 高度  
+             * @return  
+             */
+            function addPoi(lon, lat, alt) {
+                let imgUrl = CTMap.buildModuleUrl('Assets/Images/plotIcon/marker/mark3.png');
+                poi = earth.entities.add({
+                    position: Cesium.Cartesian3.fromDegrees(lon, lat, alt), //点位置
+                    billboard: {
+                        image: imgUrl, //图标地址                   
+                    }
+                });
+
+            }
+
+            /**
+             * 添加线
+             * @param  {Array} points 经纬度点坐标数组
+             * @return  
+             */
+            function addPolyline(points) {
+                line = earth.entities.add({
+                    polyline: {
+                        positions: CTMap.Cartesian3.fromDegreesArrayHeights(points),
+                        width: 4.0,
+                        clampToGround: true,
+                        material: CTMap.Color.RED.withAlpha(0.9) //线颜色
+                        //此处 也可以用十六进制颜色值 CTMap.Color.fromCssColorString('#67ADDF');
+                    }
+                });
+            }
+
+            /**
+             * 添加多边形
+             * @param  {Array} points 经纬度点坐标数组
+             * @return  
+             */
+            function addPolygon(points) {
+                polygon = earth.entities.add({
+                    polygon: {
+                        hierarchy: CTMap.Cartesian3.fromDegreesArrayHeights(points),
+                        width: 4.0,
+                        material: CTMap.Color.fromCssColorString('green').withAlpha(0.8) //多边形颜色,
+                        //此处 也可以用十六进制颜色值 CTMap.Color.fromCssColorString('#67ADDF');
+
+                    }
+                });
+            }
+
+            /**
+             * 添加模型
+             * @param  {String} url 模型地址
+             * @return  
+             */
+            function addModel(url) {
+                for (let i = 0; i < 20; i++) {
+                    var heading = CTMap.Math.toRadians(Math.random() * 360);
+                    var pitch = 0;
+                    var roll = 0;
+                    var hpr = new CTMap.HeadingPitchRoll(heading, pitch, roll);
+                    let lon1 = lon + Math.random() * 0.08;
+                    let lat1 = lat + Math.random() * 0.08;
+                    let position = CTMap.Cartesian3.fromDegrees(lon1, lat1, 30);
+                    var orientation = CTMap.Transforms.headingPitchRollQuaternion(position, hpr);
+                    model = earth.entities.add({
+                        name: "消防车",
+                        position: position,
+                        orientation: orientation,
+                        //模型
+                        model: {
+                            uri: url,
+                            minimumPixelSize: 128,
+                            maximumScale: 20000
+                        },
+                        //文字
+                        label: {
+                            text: "消防车",
+                            style: CTMap.LabelStyle.FILL_AND_OUTLINE,
+                            font: "16px 微软雅黑",
+                            fillColor: CTMap.Color.YELLOW.withAlpha(0.8),
+                            outlineColor: CTMap.Color.GREEN.withAlpha(0.8),
+                            outlineWidth: 2.0,
+                            pixelOffset: new CTMap.Cartesian2(0, -40),
+                            showBackground: false,
+                            backgroundColor: CTMap.Color.BLACK.withAlpha(0.9),
+                            backgroundPadding: new CTMap.Cartesian2(2, 2),
+                            disableDepthTestDistance: Number.POSITIVE_INFINITY
+                        }
+                    });
+
+                    models.set(i, model)
+                }
+            }
+
+            /**
+             * 给模型添加一个自定义的 DOM label
+             * @param  {String | HTMLElement} html 要插入的 DOM 节点或 DOM 字符串
+             * @param  {Object} model 模型对象
+             * @param  {Object} offset label 偏移量
+             * @return {HTMLElement} dom
+             */
+            function addDomLabel(html, model, offset = {
+                x: 0,
+                u: y
+            }) {
+
+                model.label.show = false
+
+                let dom = null
+
+                if (typeof html === 'string') {
+
+                    dom = document.createElement("div");
+                    dom.style.position = "absolute";
+                    dom.innerHTML = html;
+
+                } else if (typeof html === 'object') {
+
+                    dom = html.cloneNode(true)
+
+                }
+
+                earth.container.appendChild(dom);
+
+                earth.scene.postRender.addEventListener(function () {
+                    const pixcoord = earth.scene.cartesianToCanvasCoordinates(model.position.getValue(earth
+                        .clock.currentTime));
+
+                    dom.style.display = 'block';
+                    dom.style.left = pixcoord.x + offset.left + 'px';
+                    dom.style.top = pixcoord.y + offset.top + 'px';
+                })
+
+                return dom
+
+            }
+
+
+            function addAnimationModel() {
+                let start = CTMap.JulianDate.fromDate(new Date());
+                var keyPos = new CTMap.SampledPositionProperty();
+                keyPos.backwardExtrapolationDuration = 2;
+                keyPos.backwardExtrapolationType = CTMap.ExtrapolationType.HOLD;
+                keyPos.forwardExtrapolationType = CTMap.ExtrapolationType.HOLD;
+            }
+
+
+            let modelUrl = CTMap.buildModuleUrl('Assets/models/firetruck.glb');
+
+            Sandbox.addToolbarButton('添加模型、文字', () => {
+                addModel(modelUrl);
+            });
+
+            Sandbox.addToolbarButton('添加点', () => {
+                addPoint(116.3678, 39.90680, 0);
+            });
+
+            Sandbox.addToolbarButton('添加POI图标', () => {
+                addPoi(116.3678, 39.90580, 0);
+            });
+
+            Sandbox.addToolbarButton('添加路径', () => {
+                let points = [
+                    116.3678, 39.90580, 0,
+                    116.4117, 39.9070, 0,
+                    116.4127, 39.8917, 0
+                ];
+
+                addPolyline(points);
+            });
+
+            Sandbox.addToolbarButton('添加多边形', () => {
+                let points = [
+                    116.3678, 39.90580, 0,
+                    116.4117, 39.9070, 0,
+                    116.4127, 39.8917, 0
+                ];
+
+                addPolygon(points);
+            });
+
+            Sandbox.addToggleButton('显隐控制', true, (checked) => {
+                //模型显隐
+                if (models) {
+                    for (let item of models)
+                        item[1].show = checked;
+                }
+                //模型显隐
+                if (line)
+                    line.show = checked;
+                //多边形显隐
+                if (polygon)
+                    polygon.show = checked;
+                //点显隐
+                if (point)
+                    point.show = checked;
+                //POI显隐
+                if (poi)
+                    poi.show = checked; 
+            });
+
+
+            Sandbox.addToolbarButton('绘制线', () => {
+                earth.trackPolyline((pts) => {
+                    addPolyline(pts);
+                });
+            });
+
+            Sandbox.addToolbarButton('绘制多边形', () => {
+                earth.trackPolygon((pts) => {
+                    addPolygon(pts);
+                });
+            });
+
+            Sandbox.addToolbarButton('定位到第一个模型', () => {
+                earth.flyTo(models.get(0));                
+                // earth.flyTo(point);  // 定位对象可以是 point、poi、line、polygon
+
+            });
+
+            Sandbox.addToolbarButton('定位到经纬度坐标', () => {
+                earth.camera.flyTo({
+                    destination: CTMap.Cartesian3.fromDegrees(116.3678, 39.8986, 15000.0)
+                })
+            });
+
+            Sandbox.addToolbarButton('修改模型 label', () => {
+                const model = models.get(0)
+                earth.flyTo(model)
+                addDomLabel('<h1 id=“labelDomTest” style="color: #0000ff;">domLabel</h1>', model, {
+                    left: 0,
+                    top: -100
+                })
+
+            });
+
+
+            /*********************************动画相关接口**************************************************/
+
+            const anaCollection = new animationModelCollection(earth);
+            anaCollection.startTime = new Date();
+            let animModel;
+
+
+            let origiPos = {
+                lon: 116.3678, //经度
+                lat: 39.90580, //维度
+                alt: 0, //高度
+                angle: 90, //方位角度
+                time: new Date() //时间
+            };
+
+            function updatePosition() {
+                //每隔3秒更新一次位置
+                setInterval(() => {
+                    //模拟数据
+                    let m = new Date();
+                    let newTime = new Date(m.getTime() + 1000 * 5);
+                    origiPos.lon += 0.001;
+                    origiPos.lat += 0.001;
+                    origiPos.time = newTime;
+                    origiPos.angle = Math.random() * 360; //角度随机
+
+                    let timePos = new timePosition(origiPos);
+                    animModel.addTimePosition(timePos);
+
+                }, 3000);
+
+            }
+
+            Sandbox.addToolbarButton('添加路径动画', () => {
+                animModel = new animationModel(modelUrl, "测试模型");
+                anaCollection.add(animModel);
+
+                let timePos = new timePosition(origiPos);
+                animModel.addTimePosition(timePos);
+                //更新位置
+                updatePosition();
+                anaCollection.start();
+
+            }, 'animation');
+
+            Sandbox.addToolbarButton('暂停/播放', () => {
+                anaCollection.pause = !anaCollection.pause;
+            }, 'animation');
+
+
+            Sandbox.addToolbarButton('加速', () => {
+                anaCollection.speed += 0.2;
+            }, 'animation');
+
+            Sandbox.addToolbarButton('减速', () => {
+                anaCollection.speed -= 0.2;
+            }, 'animation');
+
+
+            Sandbox.addToggleButton('隐藏路径动画', true, (checked) => {
+                anaCollection.show = checked;
+            }, 'animation');
+
+            /*********************************动画相关接口**************************************************/
+
+
+        }
+    </script>
+</body>
